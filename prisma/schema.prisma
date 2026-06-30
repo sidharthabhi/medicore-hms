@@ -1,0 +1,364 @@
+// MediCore HMS — Prisma schema (PostgreSQL)
+//
+// Status/role fields use native Postgres enums for type safety at the DB level.
+// To run locally you need a Postgres database; set DATABASE_URL in .env.
+// Quick option: a free Neon/Supabase database, or local Postgres via Docker.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// ENUMS
+// ----------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  DOCTOR
+  NURSE
+  RECEPTIONIST
+  PHARMACIST
+  LAB_TECHNICIAN
+  ACCOUNTANT
+  PATIENT
+}
+
+enum ApptStatus {
+  BOOKED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum EncounterType {
+  OPD
+  IPD
+  EMERGENCY
+}
+
+enum LabStatus {
+  ORDERED
+  SAMPLE_COLLECTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  CLEANING
+  RESERVED
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+// ----------------------------------------------------------------------------
+// AUTH & USERS
+// ----------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  phone        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  doctor    Doctor?
+  staff     Staff?
+  patient   Patient?
+  auditLogs AuditLog[]
+
+  @@index([role])
+}
+
+// ----------------------------------------------------------------------------
+// PATIENTS
+// ----------------------------------------------------------------------------
+
+model Patient {
+  id          String   @id @default(cuid())
+  mrn         String   @unique
+  userId      String?  @unique
+  user        User?    @relation(fields: [userId], references: [id])
+  firstName   String
+  lastName    String
+  dob         DateTime
+  gender      String
+  bloodGroup  String?
+  phone       String
+  email       String?
+  address     String?
+  emgName     String?
+  emgPhone    String?
+  emgRelation String?
+  insProvider String?
+  insPolicyNo String?
+  allergies   String?
+  createdAt   DateTime @default(now())
+
+  appointments  Appointment[]
+  encounters    Encounter[]
+  admissions    Admission[]
+  invoices      Invoice[]
+  labOrders     LabOrder[]
+  prescriptions Prescription[]
+
+  @@index([firstName, lastName])
+  @@index([phone])
+}
+
+// ----------------------------------------------------------------------------
+// DEPARTMENTS / DOCTORS / STAFF
+// ----------------------------------------------------------------------------
+
+model Department {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  doctors Doctor[]
+  beds    Bed[]
+}
+
+model Doctor {
+  id              String     @id @default(cuid())
+  userId          String     @unique
+  user            User       @relation(fields: [userId], references: [id])
+  specialization  String
+  departmentId    String
+  department      Department @relation(fields: [departmentId], references: [id])
+  consultationFee Float      @default(500)
+  onLeave         Boolean    @default(false)
+
+  appointments Appointment[]
+  encounters   Encounter[]
+  schedules    DoctorSchedule[]
+}
+
+model DoctorSchedule {
+  id        String @id @default(cuid())
+  doctorId  String
+  doctor    Doctor @relation(fields: [doctorId], references: [id])
+  dayOfWeek Int
+  startTime String
+  endTime   String
+}
+
+model Staff {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  employeeId  String   @unique
+  designation String
+  shift       String?
+  salary      Float?
+  joinedAt    DateTime @default(now())
+}
+
+// ----------------------------------------------------------------------------
+// APPOINTMENTS
+// ----------------------------------------------------------------------------
+
+model Appointment {
+  id          String     @id @default(cuid())
+  patientId   String
+  patient     Patient    @relation(fields: [patientId], references: [id])
+  doctorId    String
+  doctor      Doctor     @relation(fields: [doctorId], references: [id])
+  scheduledAt DateTime
+  token       Int
+  status      ApptStatus @default(BOOKED)
+  reason      String?
+  createdAt   DateTime   @default(now())
+
+  encounter Encounter?
+
+  @@index([scheduledAt])
+  @@index([doctorId, scheduledAt])
+}
+
+// ----------------------------------------------------------------------------
+// EMR
+// ----------------------------------------------------------------------------
+
+model Encounter {
+  id            String        @id @default(cuid())
+  patientId     String
+  patient       Patient       @relation(fields: [patientId], references: [id])
+  doctorId      String
+  doctor        Doctor        @relation(fields: [doctorId], references: [id])
+  appointmentId String?       @unique
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
+  type          EncounterType @default(OPD)
+  bpSystolic    Int?
+  bpDiastolic   Int?
+  pulse         Int?
+  tempC         Float?
+  weightKg      Float?
+  symptoms      String?
+  diagnosis     String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  prescriptions Prescription[]
+  labOrders     LabOrder[]
+
+  @@index([patientId])
+}
+
+model Prescription {
+  id           String    @id @default(cuid())
+  encounterId  String
+  encounter    Encounter @relation(fields: [encounterId], references: [id])
+  patientId    String
+  patient      Patient   @relation(fields: [patientId], references: [id])
+  medicineId   String
+  medicine     Medicine  @relation(fields: [medicineId], references: [id])
+  dosage       String
+  durationDays Int       @default(5)
+  notes        String?
+  dispensed    Boolean   @default(false)
+}
+
+// ----------------------------------------------------------------------------
+// PHARMACY
+// ----------------------------------------------------------------------------
+
+model Medicine {
+  id           String    @id @default(cuid())
+  name         String
+  sku          String    @unique
+  category     String?
+  unitPrice    Float
+  stock        Int       @default(0)
+  reorderLevel Int       @default(20)
+  supplierId   String?
+  supplier     Supplier? @relation(fields: [supplierId], references: [id])
+  expiryDate   DateTime?
+
+  prescriptions Prescription[]
+}
+
+model Supplier {
+  id        String     @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  medicines Medicine[]
+}
+
+// ----------------------------------------------------------------------------
+// LABORATORY
+// ----------------------------------------------------------------------------
+
+model LabOrder {
+  id          String     @id @default(cuid())
+  patientId   String
+  patient     Patient    @relation(fields: [patientId], references: [id])
+  encounterId String?
+  encounter   Encounter? @relation(fields: [encounterId], references: [id])
+  testName    String
+  status      LabStatus  @default(ORDERED)
+  result      String?
+  price       Float      @default(300)
+  orderedAt   DateTime   @default(now())
+  completedAt DateTime?
+
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// IPD — BEDS & ADMISSIONS
+// ----------------------------------------------------------------------------
+
+model Bed {
+  id           String      @id @default(cuid())
+  bedNumber    String      @unique
+  ward         String
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  status       BedStatus   @default(AVAILABLE)
+  dailyRate    Float       @default(1000)
+
+  admissions Admission[]
+
+  @@index([status])
+}
+
+model Admission {
+  id               String    @id @default(cuid())
+  patientId        String
+  patient          Patient   @relation(fields: [patientId], references: [id])
+  bedId            String
+  bed              Bed       @relation(fields: [bedId], references: [id])
+  admittedAt       DateTime  @default(now())
+  dischargedAt     DateTime?
+  dischargeSummary String?
+
+  @@index([patientId])
+}
+
+// ----------------------------------------------------------------------------
+// BILLING
+// ----------------------------------------------------------------------------
+
+model Invoice {
+  id        String        @id @default(cuid())
+  invoiceNo String        @unique
+  patientId String
+  patient   Patient       @relation(fields: [patientId], references: [id])
+  status    InvoiceStatus @default(UNPAID)
+  total     Float         @default(0)
+  paid      Float         @default(0)
+  createdAt DateTime      @default(now())
+
+  items InvoiceItem[]
+
+  @@index([status])
+}
+
+model InvoiceItem {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+  label     String
+  category  String
+  amount    Float
+}
+
+// ----------------------------------------------------------------------------
+// COUNTERS (atomic human-reference generation — MRN, invoice no)
+// ----------------------------------------------------------------------------
+
+model Counter {
+  id    String @id // e.g. "mrn", "invoice"
+  value Int    @default(0)
+}
+
+// ----------------------------------------------------------------------------
+// AUDIT
+// ----------------------------------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

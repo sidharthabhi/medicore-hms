@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-serif: 'Newsreader', Georgia, serif;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+* { -webkit-font-smoothing: antialiased; }
+body { background: #FBFBFC; color: #15181E; font-family: var(--font-sans); }
+
+@layer components {
+  /* Quiet card — hairline border, barely-there shadow */
+  .card { @apply bg-surface rounded-2xl border border-hairline; }
+
+  /* Eyebrow label — small caps, the structural signature */
+  .eyebrow { @apply text-[11px] font-medium uppercase tracking-[0.12em] text-faint; }
+
+  .btn { @apply inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-150; }
+  .btn-primary { @apply bg-accent text-white hover:brightness-110 active:brightness-95; }
+  .btn-ghost { @apply text-muted hover:bg-hairline/60; }
+
+  .input {
+    @apply w-full rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-sm text-ink
+           outline-none transition placeholder:text-faint
+           focus:border-accent focus:ring-4 focus:ring-accentlt;
+  }
+
+  .pill { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium; }
+
+  /* Data figures — tabular mono */
+  .figure { @apply font-mono tabular-nums; }
+}
+
+/* staggered page-load reveal */
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 0.5s cubic-bezier(0.16,1,0.3,1) both; }
