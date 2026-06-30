@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/db";
 import { requireRole, errorResponse, HttpError } from "@/lib/guard";
 import { str } from "@/lib/validate";

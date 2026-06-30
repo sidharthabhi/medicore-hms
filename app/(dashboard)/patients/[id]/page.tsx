@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { StatusBadge } from "@/components/ui";

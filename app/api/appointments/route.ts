@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/db";
 import { requireAccess, errorResponse, HttpError } from "@/lib/guard";
 import { str, dateValue } from "@/lib/validate";

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getDashboardMetrics } from "@/lib/metrics";
 import { PatientFlow, RevenueBars } from "@/components/DashboardCharts";
 import { StatusBadge } from "@/components/ui";

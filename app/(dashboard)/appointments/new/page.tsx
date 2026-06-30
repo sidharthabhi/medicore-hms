@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/db";
 import { PageHeader } from "@/components/ui";
 import BookForm from "./BookForm";
